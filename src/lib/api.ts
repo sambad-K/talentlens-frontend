@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_URL ?? ['https://talentlens-backend-gsai.onrender.com', 'http://localhost:8000'][0]
+const baseURL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://talentlens-backend-gsai.onrender.com')
 
 export const api = axios.create({
   baseURL,
