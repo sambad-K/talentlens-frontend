@@ -1,11 +1,11 @@
 import axios from 'axios'
 
-const baseURL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://talentlens-backend-gsai.onrender.com')
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/$/, '') ||
+  'https://talentlens-backend-gsai.onrender.com'
 
 export const api = axios.create({
-  baseURL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -23,12 +23,32 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('talentlens_access_token')
-      localStorage.removeItem('talentlens_refresh_token')
-      localStorage.removeItem('talentlens_user')
-      window.location.href = '/login'
+  async (error) => {
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest?._retry) {
+      const refreshToken = localStorage.getItem('talentlens_refresh_token')
+
+      if (refreshToken) {
+        originalRequest._retry = true
+
+        try {
+          const refreshResponse = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
+            refresh: refreshToken,
+          })
+
+          const newAccessToken = refreshResponse.data.access
+          localStorage.setItem('talentlens_access_token', newAccessToken)
+
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+          return axios(originalRequest)
+        } catch {
+          localStorage.removeItem('talentlens_access_token')
+          localStorage.removeItem('talentlens_refresh_token')
+          localStorage.removeItem('talentlens_user')
+          window.location.href = '/login'
+        }
+      }
     }
 
     return Promise.reject(error)
